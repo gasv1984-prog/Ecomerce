@@ -1,0 +1,614 @@
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mercado Quindos - Comunidad IEQ</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome para Iconos (Más estable que Lucide en entornos sin empaquetador) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel para JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #F8F9FB;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .glass { 
+            background: rgba(255, 255, 255, 0.85); 
+            backdrop-filter: blur(12px); 
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up { animation: slideUpFade 0.4s ease-out forwards; }
+        
+        @keyframes pulse-soft {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .animate-pulse-soft { animation: pulse-soft 2s infinite; }
+    </style>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        quindos: {
+                            yellow: '#FFC107',
+                            navy: '#0F172A',
+                            green: '#10B981',
+                            light: '#F8FAFC'
+                        }
+                    },
+                    boxShadow: {
+                        'soft': '0 10px 40px -10px rgba(0,0,0,0.08)',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="text-slate-800 antialiased">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo, useEffect, useRef } = React;
+
+        // --- DATOS DE PRUEBA ---
+        const CATEGORIAS = ['Todos', 'Alimentos', 'Cursos', 'Artesanías', 'Servicios'];
+
+        const PRODUCTOS = [
+            { id: 1, nombre: "Café Especial Los Quindos (250g)", precio: 15000, imagen: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=500&q=80", vendedor: "Grado 11 - Emprendimiento", isFull: true, cat: 'Alimentos', desc: "Café de alta montaña cultivado y tostado por estudiantes del énfasis agrícola. Notas a chocolate y caramelo.", caracteristicas: ["Origen: Armenia, Quindío", "Tueste: Medio", "Variedad: Castillo"] },
+            { id: 2, nombre: "Miel de Abejas Orgánica (500ml)", precio: 18000, imagen: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500&q=80", vendedor: "Grado 9 - Proyecto Ambiental", isFull: true, cat: 'Alimentos', desc: "Miel 100% pura recolectada responsablemente del sendero ecológico de la institución.", caracteristicas: ["Pura 100%", "Multifloral", "Envase de vidrio retornable"] },
+            { id: 3, nombre: "Masterclass: IA en el Aula", precio: 25000, imagen: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=500&q=80", vendedor: "Semillero Tech", isFull: false, cat: 'Cursos', desc: "Aprende a utilizar herramientas de Inteligencia Artificial para potenciar tus métodos de estudio y proyectos.", caracteristicas: ["Certificado incluido", "Material Digital", "Duración: 4 horas"] },
+            { id: 4, nombre: "Mochila Tejida a Mano", precio: 45000, imagen: "https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=500&q=80", vendedor: "Taller de Artes", isFull: false, cat: 'Artesanías', desc: "Hermosa mochila tejida en hilo de algodón por estudiantes del taller de artes manuales.", caracteristicas: ["Hecho a mano", "Material: Algodón", "Diseño único"] },
+            { id: 5, nombre: "Mantenimiento Preventivo PC", precio: 30000, imagen: "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=500&q=80", vendedor: "Técnica en Sistemas", isFull: false, cat: 'Servicios', desc: "Limpieza física y optimización de software para computadores portátiles y de escritorio.", caracteristicas: ["Servicio a domicilio escolar", "Garantía de 15 días", "Incluye pasta térmica"] },
+            { id: 6, nombre: "Galletas de Avena (Paquete x6)", precio: 5000, imagen: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&q=80", vendedor: "Club de Gastronomía", isFull: true, cat: 'Alimentos', desc: "Deliciosas galletas saludables horneadas con avena, pasas y un toque de canela.", caracteristicas: ["Sin conservantes", "Bajas en azúcar", "Horneado diario"] },
+        ];
+
+        const PROYECTOS = [
+            { id: 'p1', titulo: "Huerta Escolar 2026", meta: 1200000, recaudado: 850000, img: "https://images.unsplash.com/photo-1592419044706-39796d40f98c?w=800&q=80", grado: "Primaria & Ciencias", desc: "Buscamos fondos para ampliar nuestra huerta escolar, comprar semillas nativas, abono orgánico y herramientas para que los niños de primaria aprendan sobre soberanía alimentaria." },
+            { id: 'p2', titulo: "Robótica Inclusiva", meta: 2500000, recaudado: 600000, img: "https://images.unsplash.com/photo-1561557944-6e7860d1a7eb?w=800&q=80", grado: "Grado 10", desc: "Creación de kits de robótica de bajo costo utilizando material reciclado para enseñar programación básica a estudiantes de grados inferiores." }
+        ];
+
+        // --- COMPONENTES AUXILIARES ---
+        const ProgressBar = ({ current, total }) => {
+            const percent = Math.min((current / total) * 100, 100);
+            return (
+                <div className="w-full">
+                    <div className="flex justify-between text-xs font-bold text-slate-500 mb-2">
+                        <span className="text-quindos-navy">${current.toLocaleString()}</span>
+                        <span>Meta: ${total.toLocaleString()}</span>
+                    </div>
+                    <div className="h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                        <div className="h-full bg-gradient-to-r from-quindos-green to-emerald-400 transition-all duration-1000 ease-out" style={{ width: `${percent}%` }} />
+                    </div>
+                    <p className="text-right text-[10px] text-slate-400 mt-1 font-medium">{Math.round(percent)}% completado</p>
+                </div>
+            );
+        };
+
+        const Toast = ({ message }) => {
+            if (!message) return null;
+            return (
+                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[150] animate-slide-up">
+                    <div className="bg-quindos-navy text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-slate-700/50">
+                        <i className="fa-solid fa-circle-check text-quindos-green"></i>
+                        <span className="text-sm font-medium">{message}</span>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- COMPONENTE PRINCIPAL ---
+        const App = () => {
+            const [tab, setTab] = useState('mercado');
+            const [cart, setCart] = useState([]);
+            const [isCartOpen, setIsCartOpen] = useState(false);
+            const [selectedItem, setSelectedItem] = useState(null);
+            
+            const [searchTerm, setSearchTerm] = useState('');
+            const [selectedCategory, setSelectedCategory] = useState('Todos');
+            
+            const [chatMsg, setChatMsg] = useState('');
+            const [chatHistory, setChatHistory] = useState([]);
+            
+            const [toastMsg, setToastMsg] = useState(null);
+            const [isCheckingOut, setIsCheckingOut] = useState(false);
+            const chatEndRef = useRef(null);
+
+            useEffect(() => {
+                if (chatEndRef.current) {
+                    chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+                }
+            }, [chatHistory]);
+
+            const filteredProductos = useMemo(() => {
+                return PRODUCTOS.filter(p => {
+                    const matchCat = selectedCategory === 'Todos' || p.cat === selectedCategory;
+                    const matchSearch = p.nombre.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                        p.vendedor.toLowerCase().includes(searchTerm.toLowerCase());
+                    return matchCat && matchSearch;
+                });
+            }, [searchTerm, selectedCategory]);
+
+            const showToast = (msg) => {
+                setToastMsg(msg);
+                setTimeout(() => setToastMsg(null), 3000);
+            };
+
+            const addToCart = (item) => {
+                setCart(prev => [...prev, { ...item, cartId: Date.now() }]);
+                showToast(`¡${item.nombre.split(' ')[0]} añadido al pedido!`);
+            };
+
+            const removeFromCart = (id) => setCart(cart.filter(i => i.cartId !== id));
+            const total = cart.reduce((acc, i) => acc + i.precio, 0);
+
+            const handleCheckout = () => {
+                setIsCheckingOut(true);
+                setTimeout(() => {
+                    setIsCheckingOut(false);
+                    setCart([]);
+                    setIsCartOpen(false);
+                    showToast("¡Pedido confirmado con éxito! Gracias por apoyar.");
+                }, 1500);
+            };
+
+            const sendMsg = () => {
+                if(!chatMsg.trim()) return;
+                const newMsg = chatMsg.trim();
+                setChatHistory(prev => [...prev, { text: newMsg, sender: 'user' }]);
+                setChatMsg('');
+                
+                setTimeout(() => {
+                    let reply = "Gracias por tu mensaje. El responsable se contactará pronto.";
+                    if(newMsg.toLowerCase().includes('precio')) {
+                        reply = `El aporte/precio sugerido es de $${selectedItem.precio?.toLocaleString() || selectedItem.meta?.toLocaleString()}. ¿Te gustaría saber cómo adquirirlo?`;
+                    }
+                    setChatHistory(prev => [...prev, { text: reply, sender: 'admin' }]);
+                }, 1000);
+            };
+
+            const handleOpenDetails = (item) => {
+                setSelectedItem(item);
+                setChatHistory([{ text: "¡Hola! ¿Tienes alguna duda sobre este proyecto o producto?", sender: 'admin' }]);
+            };
+
+            return (
+                <div className="min-h-screen pb-24 flex flex-col font-sans">
+                    {/* NAV */}
+                    <nav className="glass sticky top-0 z-50 border-b border-slate-200/50 shadow-sm transition-all">
+                        <div className="bg-quindos-yellow h-2 w-full"></div>
+                        <div className="max-w-6xl mx-auto px-4 py-3">
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-3 cursor-pointer" onClick={() => setTab('mercado')}>
+                                    <div className="bg-white p-1.5 rounded-xl shadow-sm border border-slate-100">
+                                        <img src="https://i.postimg.cc/9fJsDW4Z/escudo.png" className="h-8 md:h-10 object-contain" alt="Escudo IEQ" />
+                                    </div>
+                                    <div>
+                                        <h1 className="font-black text-quindos-navy text-lg md:text-xl tracking-tight leading-none">Mercado Quindos</h1>
+                                        <p className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-widest hidden sm:block">Comunidad I.E. Los Quindos</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center">
+                                    <button onClick={() => setIsCartOpen(true)} className="relative p-3 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors text-quindos-navy flex items-center justify-center">
+                                        <i className="fa-solid fa-bag-shopping text-lg"></i>
+                                        {cart.length > 0 && (
+                                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-sm animate-pulse-soft">
+                                                {cart.length}
+                                            </span>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2 mt-4 overflow-x-auto no-scrollbar pb-1">
+                                {[
+                                    { id: 'mercado', label: 'Tienda Escolar', icon: 'fa-store' },
+                                    { id: 'banco', label: 'Apoyo a Proyectos', icon: 'fa-hand-holding-heart' },
+                                    { id: 'info', label: 'Institución', icon: 'fa-award' }
+                                ].map(m => (
+                                    <button 
+                                        key={m.id} 
+                                        onClick={() => setTab(m.id)} 
+                                        className={`flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-300 ${
+                                            tab === m.id 
+                                            ? 'bg-quindos-navy text-white shadow-md' 
+                                            : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <i className={`fa-solid ${m.icon}`}></i> {m.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </nav>
+
+                    {/* MAIN CONTENT */}
+                    <main className="flex-grow max-w-6xl mx-auto w-full px-4 py-6 md:py-8 flex flex-col gap-6">
+                        
+                        {/* TIENDA */}
+                        {tab === 'mercado' && (
+                            <div className="flex flex-col gap-6">
+                                <div className="relative rounded-3xl overflow-hidden bg-quindos-navy text-white p-6 md:p-10 shadow-soft">
+                                    <div className="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1577896851231-70ef18881754?q=80&w=1000')] bg-cover bg-center mix-blend-overlay"></div>
+                                    <div className="relative z-10 max-w-xl">
+                                        <span className="bg-quindos-yellow text-quindos-navy text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest mb-3 inline-block">Emprendimiento Estudiantil</span>
+                                        <h2 className="text-2xl md:text-4xl font-black mb-2 leading-tight">Apoya el talento local de la IEQ</h2>
+                                        <p className="text-slate-300 text-sm md:text-base font-medium">Descubre productos increíbles creados por nuestros estudiantes y docentes.</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col md:flex-row justify-between gap-4 sticky top-36 z-30 bg-[#F8F9FB] py-2">
+                                    <div className="relative flex-grow max-w-md">
+                                        <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                                        <input 
+                                            type="text" 
+                                            placeholder="Buscar productos, vendedores..." 
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-quindos-yellow shadow-sm"
+                                        />
+                                    </div>
+                                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                                        {CATEGORIAS.map(cat => (
+                                            <button 
+                                                key={cat} 
+                                                onClick={() => setSelectedCategory(cat)}
+                                                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
+                                                    selectedCategory === cat 
+                                                    ? 'bg-quindos-yellow text-quindos-navy border-transparent' 
+                                                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                {cat}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {filteredProductos.length === 0 ? (
+                                    <div className="text-center py-20">
+                                        <i className="fa-solid fa-box-open text-5xl text-slate-300 mb-4"></i>
+                                        <p className="text-slate-500 font-medium">No se encontraron productos para tu búsqueda.</p>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                                        {filteredProductos.map(p => (
+                                            <div key={p.id} onClick={() => handleOpenDetails(p)} className="bg-white rounded-3xl shadow-sm hover:shadow-soft border border-slate-100 overflow-hidden cursor-pointer group transition-all duration-300 flex flex-col">
+                                                <div className="aspect-square relative overflow-hidden bg-slate-50">
+                                                    <img src={p.imagen} alt={p.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                                                    <div className="absolute top-3 left-3 flex flex-col gap-1">
+                                                        {p.isFull && <span className="bg-quindos-navy text-white text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-md"><i className="fa-solid fa-bolt text-quindos-yellow"></i> Envío IEQ</span>}
+                                                        <span className="bg-white/90 backdrop-blur text-slate-700 text-[9px] font-bold px-2 py-1 rounded-md uppercase shadow-sm border border-white/50">{p.cat}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="p-4 md:p-5 flex flex-col flex-grow">
+                                                    <p className="text-[10px] font-bold text-quindos-green uppercase mb-1 tracking-wide">{p.vendedor}</p>
+                                                    <h3 className="text-sm font-bold text-slate-800 leading-snug mb-2 flex-grow line-clamp-2">{p.nombre}</h3>
+                                                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-100">
+                                                        <span className="font-black text-lg text-quindos-navy">${p.precio.toLocaleString()}</span>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); addToCart(p); }}
+                                                            className="w-8 h-8 bg-slate-100 hover:bg-quindos-yellow hover:text-quindos-navy rounded-full text-slate-600 flex items-center justify-center transition-colors"
+                                                        >
+                                                            <i className="fa-solid fa-plus"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* PROYECTOS */}
+                        {tab === 'banco' && (
+                            <div className="flex flex-col gap-6">
+                                <div className="text-center max-w-2xl mx-auto py-6">
+                                    <h2 className="text-3xl font-black text-quindos-navy mb-3">Banco de Proyectos IEQ</h2>
+                                    <p className="text-slate-500">Conoce y cofinancia las iniciativas innovadoras de nuestros estudiantes y docentes.</p>
+                                </div>
+                                
+                                <div className="grid md:grid-cols-2 gap-6 md:gap-8">
+                                    {PROYECTOS.map(proj => (
+                                        <div key={proj.id} onClick={() => handleOpenDetails(proj)} className="bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-soft cursor-pointer group flex flex-col hover:-translate-y-1 transition-transform duration-300">
+                                            <div className="h-64 relative overflow-hidden">
+                                                <img src={proj.img} alt={proj.titulo} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-quindos-navy/90 via-quindos-navy/30 to-transparent" />
+                                                <div className="absolute bottom-6 left-6 right-6">
+                                                    <span className="bg-quindos-yellow text-quindos-navy text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest mb-2 inline-block">{proj.grado}</span>
+                                                    <h3 className="text-2xl font-black text-white leading-tight">{proj.titulo}</h3>
+                                                </div>
+                                            </div>
+                                            <div className="p-6 md:p-8 flex flex-col flex-grow">
+                                                <p className="text-sm text-slate-600 mb-6 line-clamp-3">{proj.desc}</p>
+                                                <div className="mt-auto">
+                                                    <ProgressBar current={proj.recaudado} total={proj.meta} />
+                                                    <button className="w-full mt-6 bg-slate-50 hover:bg-quindos-navy hover:text-white border border-slate-200 text-slate-700 py-3.5 rounded-2xl font-bold text-sm transition-colors flex items-center justify-center gap-2 group-hover:border-quindos-navy">
+                                                        <i className="fa-solid fa-heart text-red-500 group-hover:animate-pulse"></i> Conocer más y Apoyar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* INFO INSTITUCIÓN */}
+                        {tab === 'info' && (
+                            <div className="flex items-center justify-center py-10">
+                                <div className="bg-white rounded-[2.5rem] p-8 md:p-14 border border-slate-100 shadow-soft max-w-3xl mx-auto text-center relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-quindos-yellow via-quindos-green to-quindos-navy"></div>
+                                    
+                                    <img src="https://i.postimg.cc/9fJsDW4Z/escudo.png" className="h-28 mx-auto mb-8 drop-shadow-md" alt="Escudo" />
+                                    
+                                    <h2 className="text-3xl md:text-4xl font-black text-quindos-navy mb-4">Institución Educativa Los Quindos</h2>
+                                    <p className="text-base text-slate-500 leading-relaxed max-w-2xl mx-auto mb-10">
+                                        Formando líderes con visión de futuro en Armenia, Quindío. Nuestra plataforma <strong>"Mercado Quindos"</strong> fomenta el emprendimiento estudiantil.
+                                    </p>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <i className="fa-solid fa-location-dot text-2xl text-quindos-green mb-3 block"></i>
+                                            <h4 className="font-bold text-slate-800 text-sm mb-1">Ubicación</h4>
+                                            <p className="text-xs text-slate-500">Armenia, Quindío<br/>Colombia</p>
+                                        </div>
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <i className="fa-solid fa-users text-2xl text-quindos-yellow mb-3 block"></i>
+                                            <h4 className="font-bold text-slate-800 text-sm mb-1">Comunidad</h4>
+                                            <p className="text-xs text-slate-500">Estudiantes, Docentes y Padres de Familia</p>
+                                        </div>
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <i className="fa-solid fa-bullseye text-2xl text-blue-500 mb-3 block"></i>
+                                            <h4 className="font-bold text-slate-800 text-sm mb-1">Administración</h4>
+                                            <p className="text-xs text-slate-500">Gemay Andres Sanchez Vera<br/>Coordinación TI</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* FOOTER */}
+                    <footer className="mt-auto max-w-6xl mx-auto w-full px-4 text-center py-8">
+                        <div className="w-16 h-1 bg-slate-200 mx-auto rounded-full mb-4"></div>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">&copy; {new Date().getFullYear()} I.E. Los Quindos</p>
+                        <p className="text-[10px] text-slate-400">Trabajo, Ciencia y Civilización</p>
+                    </footer>
+
+                    {/* MODAL DETALLES */}
+                    {selectedItem && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+                            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSelectedItem(null)}></div>
+                            
+                            <div className="relative bg-white w-full max-w-5xl max-h-[95vh] rounded-[2rem] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-slide-up">
+                                <button onClick={() => setSelectedItem(null)} className="absolute top-4 right-4 z-20 bg-white/50 backdrop-blur border border-slate-200 text-slate-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-slate-100 shadow-sm">
+                                    <i className="fa-solid fa-xmark"></i>
+                                </button>
+                                
+                                <div className="w-full md:w-1/2 flex flex-col h-full max-h-[50vh] md:max-h-none overflow-y-auto bg-white border-r border-slate-100 relative">
+                                    <div className="relative h-64 md:h-80 flex-shrink-0">
+                                        <img src={selectedItem.imagen || selectedItem.img} className="w-full h-full object-cover" alt="Detalle" />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                                        <div className="absolute bottom-6 left-6 right-6">
+                                            <span className="bg-quindos-yellow text-quindos-navy text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest mb-2 inline-block shadow-sm">
+                                                {selectedItem.cat || selectedItem.grado}
+                                            </span>
+                                            <h2 className="text-2xl md:text-3xl font-black text-white leading-tight drop-shadow-md">
+                                                {selectedItem.nombre || selectedItem.titulo}
+                                            </h2>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="p-6 md:p-8 flex flex-col flex-grow">
+                                        <div className="flex items-center gap-3 mb-6 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                                            <div className="w-10 h-10 bg-quindos-navy text-white rounded-full flex items-center justify-center font-bold text-sm">
+                                                {selectedItem.vendedor ? selectedItem.vendedor.charAt(0) : 'P'}
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Responsable</p>
+                                                <p className="text-sm font-bold text-slate-800">{selectedItem.vendedor || "Coordinador de Proyecto"}</p>
+                                            </div>
+                                        </div>
+
+                                        <h4 className="text-sm font-bold text-slate-800 mb-2">Descripción</h4>
+                                        <p className="text-sm text-slate-600 leading-relaxed mb-6">{selectedItem.desc}</p>
+                                        
+                                        {selectedItem.caracteristicas && (
+                                            <div className="mb-6">
+                                                <h4 className="text-sm font-bold text-slate-800 mb-3">Características</h4>
+                                                <ul className="space-y-2">
+                                                    {selectedItem.caracteristicas.map((c, idx) => (
+                                                        <li key={idx} className="flex items-center gap-2 text-sm text-slate-600 bg-slate-50 p-2 rounded-lg">
+                                                            <i className="fa-solid fa-circle-check text-quindos-green"></i> {c}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="mt-auto pt-6">
+                                            {selectedItem.precio ? (
+                                                <div className="flex items-center gap-4">
+                                                    <div className="flex-grow">
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase">Precio Unitario</p>
+                                                        <p className="text-2xl font-black text-quindos-navy">${selectedItem.precio.toLocaleString()}</p>
+                                                    </div>
+                                                    <button onClick={() => { addToCart(selectedItem); setSelectedItem(null); }} className="bg-quindos-yellow hover:bg-yellow-400 text-quindos-navy px-6 py-4 rounded-2xl font-black uppercase text-sm flex items-center justify-center gap-2 shadow-lg transition-colors flex-shrink-0">
+                                                        <i className="fa-solid fa-cart-plus"></i> Añadir
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button className="w-full bg-quindos-navy hover:bg-slate-800 text-white py-4 rounded-2xl font-bold uppercase text-sm flex items-center justify-center gap-2 shadow-lg transition-colors">
+                                                    <i className="fa-solid fa-heart"></i> Aportar a este proyecto
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Chat Section */}
+                                <div className="w-full md:w-1/2 bg-[#F8F9FB] flex flex-col h-[50vh] md:h-auto">
+                                    <div className="p-4 bg-white border-b border-slate-100 flex justify-between items-center z-10 shadow-sm">
+                                        <div className="flex items-center gap-2">
+                                            <i className="fa-solid fa-message text-quindos-green"></i>
+                                            <h3 className="font-bold text-slate-800 text-sm">Consultas directas</h3>
+                                        </div>
+                                        <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> En línea
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="flex-grow p-4 overflow-y-auto space-y-4">
+                                        {chatHistory.map((m, i) => (
+                                            <div key={i} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                                <div className={`p-3 rounded-2xl text-sm max-w-[85%] shadow-sm ${
+                                                    m.sender === 'user' 
+                                                    ? 'bg-quindos-navy text-white rounded-tr-sm' 
+                                                    : 'bg-white text-slate-700 rounded-tl-sm border border-slate-100'
+                                                }`}>
+                                                    {m.text}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <div ref={chatEndRef} />
+                                    </div>
+                                    
+                                    <div className="p-4 bg-white border-t border-slate-100">
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                value={chatMsg} 
+                                                onChange={(e) => setChatMsg(e.target.value)} 
+                                                onKeyPress={(e) => e.key === 'Enter' && sendMsg()}
+                                                placeholder="Escribe tu consulta..." 
+                                                className="flex-grow bg-slate-50 border border-slate-200 rounded-xl px-4 text-sm focus:outline-none focus:ring-2 focus:ring-quindos-navy/20 transition-all" 
+                                            />
+                                            <button 
+                                                onClick={sendMsg} 
+                                                disabled={!chatMsg.trim()}
+                                                className="bg-quindos-yellow disabled:opacity-50 text-quindos-navy w-12 h-12 rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-all flex-shrink-0"
+                                            >
+                                                <i className="fa-solid fa-paper-plane"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* CARRITO LATERAL */}
+                    {isCartOpen && (
+                        <div className="fixed inset-0 z-[110] flex justify-end">
+                            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsCartOpen(false)}></div>
+                            <div className="relative bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-slide-up md:animate-none">
+                                <div className="p-6 bg-white border-b border-slate-100 flex justify-between items-center z-10">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-quindos-yellow/20 rounded-xl text-quindos-navy">
+                                            <i className="fa-solid fa-bag-shopping text-xl"></i>
+                                        </div>
+                                        <h2 className="text-xl font-black text-slate-800">Tu Pedido</h2>
+                                    </div>
+                                    <button onClick={() => setIsCartOpen(false)} className="bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200">
+                                        <i className="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                                
+                                <div className="flex-grow overflow-y-auto p-4 space-y-3 bg-[#F8F9FB]">
+                                    {cart.length === 0 ? (
+                                        <div className="h-full flex flex-col items-center justify-center text-center px-6">
+                                            <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                                                <i className="fa-solid fa-bag-shopping text-4xl text-slate-300"></i>
+                                            </div>
+                                            <h3 className="font-bold text-slate-700 text-lg mb-1">Tu carrito está vacío</h3>
+                                            <p className="text-sm text-slate-500">Agrega productos para verlos aquí.</p>
+                                        </div>
+                                    ) : (
+                                        cart.map(item => (
+                                            <div key={item.cartId} className="flex gap-4 p-3 bg-white rounded-2xl border border-slate-100 shadow-sm items-center">
+                                                <img src={item.imagen || item.img} className="w-16 h-16 rounded-xl object-cover bg-slate-50" alt={item.nombre} />
+                                                <div className="flex-grow min-w-0">
+                                                    <h4 className="text-xs font-bold text-slate-800 leading-tight truncate mb-1">{item.nombre || item.titulo}</h4>
+                                                    <p className="text-[10px] text-slate-500 truncate mb-1">{item.vendedor || item.grado}</p>
+                                                    <p className="text-sm font-black text-quindos-navy">${(item.precio || item.meta).toLocaleString()}</p>
+                                                </div>
+                                                <button onClick={() => removeFromCart(item.cartId)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors flex-shrink-0">
+                                                    <i className="fa-solid fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                
+                                {cart.length > 0 && (
+                                    <div className="p-6 bg-white border-t border-slate-100 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)] z-10">
+                                        <div className="space-y-2 mb-4">
+                                            <div className="flex justify-between text-sm text-slate-500">
+                                                <span>Subtotal ({cart.length} items)</span>
+                                                <span>${total.toLocaleString()}</span>
+                                            </div>
+                                            <div className="h-px bg-slate-100 w-full my-2"></div>
+                                            <div className="flex justify-between items-end">
+                                                <span className="text-sm font-bold text-slate-800">Total a pagar</span>
+                                                <span className="text-2xl font-black text-quindos-navy">${total.toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <button 
+                                            onClick={handleCheckout}
+                                            disabled={isCheckingOut}
+                                            className="w-full bg-quindos-navy text-white py-4 rounded-2xl font-bold uppercase text-sm tracking-wide flex items-center justify-center gap-2 shadow-lg hover:bg-slate-800 transition-all disabled:opacity-70"
+                                        >
+                                            {isCheckingOut ? (
+                                                <span className="flex items-center gap-2">
+                                                    <i className="fa-solid fa-circle-notch fa-spin"></i> Procesando...
+                                                </span>
+                                            ) : (
+                                                <>Confirmar Solicitud <i className="fa-solid fa-arrow-right"></i></>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    <Toast message={toastMsg} />
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+
+```
